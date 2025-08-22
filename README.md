@@ -1,20 +1,36 @@
-## �️ Full GUI Interface
+# TrueFund
 
-TrueFund will feature a complete web-based graphical user interface (GUI) built with React.js. The frontend will allow users to:
+A blockchain-based donation platform for transparent, direct giving to verified recipients such as charities, mosques, or individuals in need. Built as a learning project to explore smart contract development, security, and best practices.
 
-- Connect their wallet
-- Select a recipient and currency
-- Enter donation amount in their local currency
-- View donation history and transparency data
-- Admins can manage recipients and supported currencies
+---
 
-The frontend will follow industry standards for web3 integration and user experience.
+## 🚀 Project Overview
 
-### Development Best Practice
+TrueFund allows an admin to register recipient wallets for organizations. Donors can send their local currencies directly to these wallets, with every donation tracked on-chain via events. Funds never stay in the contract, ensuring maximum transparency and trust. Only the intended recipient receives the donation—no one else can withdraw or access the funds.
 
-It’s recommended to build and test the smart contract first, ensuring all core logic and events work as expected. Once the contract is stable, you can develop the frontend and integrate it with the contract. However, you can also prototype the frontend in parallel for faster iteration, especially if you want to test UI ideas early. Most professional teams build the contract first, then the frontend, but learning projects can be flexible!
+## ✨ Features
 
-## �📋 Planning & User Stories
+- Admin can register verified recipient wallets
+- Donors send ETH directly to recipients
+- Donors can specify donation amount in their local currency (ETH value calculated via price feed)
+- Every donation emits an on-chain event for transparency
+- No funds held in the contract
+- Public, verifiable donation history
+- Easily extensible to support more currencies and price feeds
+
+## 🌍 Multi-Currency Donation Support
+
+Donors can donate using their local currencies. The contract uses Chainlink price feeds to convert local currency amounts to the required ETH value. Supported currencies at launch:
+
+- USD (ETH/USD)
+- CAD (ETH/CAD)
+- GBP (ETH/GBP)
+- HKD (ETH/HKD)
+- PKR (ETH/PKR)
+
+The contract is designed to easily add more price feeds and currencies as the project grows.
+
+## � Planning & User Stories
 
 ### User Stories
 
@@ -53,9 +69,21 @@ It’s recommended to build and test the smart contract first, ensuring all core
 
 ---
 
-# TrueFund
+## 🖥️ Full GUI Interface
 
-A blockchain-based donation platform for transparent, direct giving to verified recipients such as charities, mosques, or individuals in need. Built as a learning project to explore smart contract development, security, and best practices.
+TrueFund will feature a complete web-based graphical user interface (GUI) built with React.js. The frontend will allow users to:
+
+- Connect their wallet
+- Select a recipient and currency
+- Enter donation amount in their local currency
+- View donation history and transparency data
+- Admins can manage recipients and supported currencies
+
+The frontend will follow industry standards for web3 integration and user experience.
+
+### Development Best Practice
+
+It’s recommended to build and test the smart contract first, ensuring all core logic and events work as expected. Once the contract is stable, you can develop the frontend and integrate it with the contract. However, you can also prototype the frontend in parallel for faster iteration, especially if you want to test UI ideas early. Most professional teams build the contract first, then the frontend, but learning projects can be flexible!
 
 ## 🚀 Project Overview
 
@@ -87,11 +115,13 @@ The contract is designed to easily add more price feeds and currencies as the pr
 
 1. Install [Foundry](https://book.getfoundry.sh/getting-started/installation)
 2. Clone this repository:
-   ```sh
-   git clone <your-repo-url>
-   cd true-fund
-   forge install
-   ```
+
+```sh
+git clone <your-repo-url>
+cd true-fund
+forge install
+```
+
 3. Create a `.env` file for RPC URLs and private keys (if needed)
 
 ## 🧪 Usage
