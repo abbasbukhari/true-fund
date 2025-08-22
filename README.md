@@ -1,10 +1,65 @@
+## �️ Full GUI Interface
+
+TrueFund will feature a complete web-based graphical user interface (GUI) built with React.js. The frontend will allow users to:
+
+- Connect their wallet
+- Select a recipient and currency
+- Enter donation amount in their local currency
+- View donation history and transparency data
+- Admins can manage recipients and supported currencies
+
+The frontend will follow industry standards for web3 integration and user experience.
+
+### Development Best Practice
+
+It’s recommended to build and test the smart contract first, ensuring all core logic and events work as expected. Once the contract is stable, you can develop the frontend and integrate it with the contract. However, you can also prototype the frontend in parallel for faster iteration, especially if you want to test UI ideas early. Most professional teams build the contract first, then the frontend, but learning projects can be flexible!
+
+## �📋 Planning & User Stories
+
+### User Stories
+
+- As an admin, I want to register and manage recipient wallets for organizations so only verified recipients can receive donations.
+- As a donor, I want to donate in my local currency (USD, CAD, GBP, HKD, PKR, etc.) so I know exactly how much I’m giving.
+- As a donor, I want my donation to go directly to the recipient’s wallet, not stay in the contract, for maximum transparency. Only the intended recipient can receive and access the funds—no one else (not even the admin) can withdraw or access donations.
+- As a user, I want to see a public, verifiable history of all donations for trust and accountability.
+- As an admin, I want to easily add support for new currencies and price feeds as the project grows.
+
+### Planning Breakdown
+
+**Admin Functions:**
+
+- Register recipient wallets
+- Remove recipient wallets
+- Add/remove price feeds for supported currencies
+
+**Donation Functions:**
+
+- Donate to a recipient in any supported currency
+- Convert local currency amount to ETH using price feeds
+
+**Events:**
+
+- Emit events for every donation, recipient registration/removal, and price feed changes
+
+**View Functions:**
+
+- Get recipient details
+- List supported currencies
+- Get price feed addresses
+
+**Access Control:**
+
+- Only admin can manage recipients and price feeds
+
+---
+
 # TrueFund
 
 A blockchain-based donation platform for transparent, direct giving to verified recipients such as charities, mosques, or individuals in need. Built as a learning project to explore smart contract development, security, and best practices.
 
 ## 🚀 Project Overview
 
-TrueFund allows an admin to register recipient wallets for organizations. Donors can send ETH directly to these wallets, with every donation tracked on-chain via events. Funds never stay in the contract, ensuring maximum transparency and trust.
+TrueFund allows an admin to register recipient wallets for organizations. Donors can send their local currencies directly to these wallets, with every donation tracked on-chain via events. Funds never stay in the contract, ensuring maximum transparency and trust. Only the intended recipient receives the donation—no one else can withdraw or access the funds.
 
 ### 🌍 Multi-Currency Donation Support
 
