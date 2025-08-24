@@ -85,32 +85,6 @@ The frontend will follow industry standards for web3 integration and user experi
 
 It’s recommended to build and test the smart contract first, ensuring all core logic and events work as expected. Once the contract is stable, you can develop the frontend and integrate it with the contract. However, you can also prototype the frontend in parallel for faster iteration, especially if you want to test UI ideas early. Most professional teams build the contract first, then the frontend, but learning projects can be flexible!
 
-## 🚀 Project Overview
-
-TrueFund allows an admin to register recipient wallets for organizations. Donors can send their local currencies directly to these wallets, with every donation tracked on-chain via events. Funds never stay in the contract, ensuring maximum transparency and trust. Only the intended recipient receives the donation—no one else can withdraw or access the funds.
-
-### 🌍 Multi-Currency Donation Support
-
-Donors can donate using their local currencies. The contract uses Chainlink price feeds to convert local currency amounts to the required ETH value. Supported currencies at launch:
-
-- USD (ETH/USD)
-- CAD (ETH/CAD)
-- GBP (ETH/GBP)
-- HKD (ETH/HKD)
-- PKR (ETH/PKR)
-
-The contract is designed to easily add more price feeds and currencies as the project grows.
-
-## ✨ Features
-
-- Admin can register verified recipient wallets
-- Donors send ETH directly to recipients
-- Donors can specify donation amount in their local currency (ETH value calculated via price feed)
-- Every donation emits an on-chain event for transparency
-- No funds held in the contract
-- Public, verifiable donation history
-- Easily extensible to support more currencies and price feeds
-
 ## 🛠️ Setup
 
 1. Install [Foundry](https://book.getfoundry.sh/getting-started/installation)
