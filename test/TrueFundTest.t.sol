@@ -31,4 +31,24 @@ contract TrueFundTest is Test {
         string memory orgName = trueFund.getRecipientOrgName(recipient);
         assertEq(orgName, "");
     }
+
+    function testAddPriceFeed() public {
+        string memory currency = "USD";
+        address priceFeedAddress = address(3);
+        vm.prank(address(1));
+        trueFund.addPriceFeed(currency, priceFeedAddress);
+        address storedFeed = trueFund.getPriceFeedAddress(currency);
+        assertEq(storedFeed, priceFeedAddress);
+    }
+
+    function testRemovePriceFeed() public {
+        string memory currency = "USD";
+        address priceFeedAddress = address(3);
+        vm.prank(address(1));
+        trueFund.addPriceFeed(currency, priceFeedAddress);
+        vm.prank(address(1));
+        trueFund.removePriceFeed(currency);
+        address storedFeed = trueFund.getPriceFeedAddress(currency);
+        assertEq(storedFeed, address(0));
+    }
 }

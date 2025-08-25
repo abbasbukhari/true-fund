@@ -1,0 +1,4 @@
+TrueFundTest:testAddPriceFeed() (gas: 40556)
+TrueFundTest:testRegisterRecipient() (gas: 39587)
+TrueFundTest:testRemovePriceFeed() (gas: 32526)
+TrueFundTest:testRemoveRecipient() (gas: 29860)
