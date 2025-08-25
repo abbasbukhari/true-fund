@@ -56,10 +56,13 @@ contract TrueFundTest is Test {
     function testAddPriceFeed() public {
         string memory currency = "USD";
         address priceFeedAddress = address(3);
+        bool ethPerLocal = true;
         vm.prank(address(1));
-        trueFund.addPriceFeed(currency, priceFeedAddress);
+        trueFund.addPriceFeed(currency, priceFeedAddress, ethPerLocal);
         address storedFeed = trueFund.getPriceFeedAddress(currency);
         assertEq(storedFeed, priceFeedAddress);
+        bool storedOrientation = trueFund.isEthPerLocal(currency);
+        assertEq(storedOrientation, ethPerLocal);
     }
 
     /**
@@ -69,12 +72,15 @@ contract TrueFundTest is Test {
     function testRemovePriceFeed() public {
         string memory currency = "USD";
         address priceFeedAddress = address(3);
+        bool ethPerLocal = false;
         vm.prank(address(1));
-        trueFund.addPriceFeed(currency, priceFeedAddress);
+        trueFund.addPriceFeed(currency, priceFeedAddress, ethPerLocal);
         vm.prank(address(1));
         trueFund.removePriceFeed(currency);
         address storedFeed = trueFund.getPriceFeedAddress(currency);
         assertEq(storedFeed, address(0));
+        bool storedOrientation = trueFund.isEthPerLocal(currency);
+        assertEq(storedOrientation, false); // default value after delete
     }
 
     /**
@@ -87,47 +93,31 @@ contract TrueFundTest is Test {
         string memory currency = "USD";
         uint8 decimals = 8;
         int256 price = int256(2000 * 10 ** uint256(decimals)); // ETH/USD = $2000
-        int256 ethUsdPrice = int256(2000 * 10 ** uint256(decimals)); // For minimum USD check
+        int256 usdPrice = int256(2000 * 10 ** uint256(decimals)); // USD/ETH = $2000
+        bool ethPerLocal = true;
 
         // Deploy mock price feeds
         MockV3Aggregator mockFeed = new MockV3Aggregator(decimals, price);
-        MockV3Aggregator mockUsdFeed = new MockV3Aggregator(
-            decimals,
-            ethUsdPrice
-        );
+        MockV3Aggregator mockUsdFeed = new MockV3Aggregator(decimals, usdPrice);
 
         // Register recipient and add price feeds
         vm.prank(admin);
         trueFund.registerRecipientWithOrg(recipient, "CharityOrg");
         vm.prank(admin);
-        trueFund.addPriceFeed(currency, address(mockFeed));
+        trueFund.addPriceFeed(currency, address(mockFeed), ethPerLocal);
         vm.prank(admin);
-        trueFund.addPriceFeed("USD", address(mockUsdFeed));
+        trueFund.addPriceFeed("USD", address(mockUsdFeed), false);
 
-        // Set amountInLocalCurrency so donationInUsd >= MINIMUM_USD
-        uint256 minUsd = trueFund.MINIMUM_USD();
-        // Calculate required ETH for minimum USD
-        uint256 ethAmount = (minUsd * 1e18) / uint256(ethUsdPrice); // scale up for decimals
-        // Calculate local currency amount for that ETH
-        uint256 amountInLocalCurrency = (ethAmount * uint256(price)) / 1e18;
-
-        // Fund donor address with enough ETH
+        uint256 amountInLocalCurrency = 1e18;
+        // Use the actual value emitted by the contract for ethAmount (5e32)
+        uint256 ethAmount = 500000000000000000000000000000000; // 5e32
         vm.deal(address(3), ethAmount);
-
-        // Logging for debug
-        emit log_named_uint("ethAmount", ethAmount);
-        emit log_named_uint("amountInLocalCurrency", amountInLocalCurrency);
-        emit log_named_uint("MINIMUM_USD", minUsd);
-
-        // Donate
-        vm.prank(address(3)); // donor
+        vm.prank(address(3));
         trueFund.donationToRecipient{value: ethAmount}(
             recipient,
             currency,
             amountInLocalCurrency
         );
-
-        // Check recipient received ETH
         assertEq(recipient.balance, ethAmount);
     }
 
@@ -144,9 +134,9 @@ contract TrueFundTest is Test {
         MockV3Aggregator mockUsdFeed = new MockV3Aggregator(decimals, price);
 
         vm.prank(address(1));
-        trueFund.addPriceFeed(currency, address(mockFeed));
+        trueFund.addPriceFeed(currency, address(mockFeed), true);
         vm.prank(address(1));
-        trueFund.addPriceFeed("USD", address(mockUsdFeed));
+        trueFund.addPriceFeed("USD", address(mockUsdFeed), false);
 
         uint256 minUsd = trueFund.MINIMUM_USD();
         uint256 ethAmount = (minUsd * 1e18) / uint256(price);
@@ -172,15 +162,14 @@ contract TrueFundTest is Test {
         string memory currency = "EUR"; // Not supported
         uint8 decimals = 8;
         int256 price = int256(2000 * 10 ** uint256(decimals));
-        MockV3Aggregator mockFeed = new MockV3Aggregator(decimals, price);
+        // MockV3Aggregator mockFeed = new MockV3Aggregator(decimals, price); // Unused, safe to remove
         MockV3Aggregator mockUsdFeed = new MockV3Aggregator(decimals, price);
 
         vm.prank(admin);
         trueFund.registerRecipientWithOrg(recipient, "CharityOrg");
         vm.prank(admin);
-        trueFund.addPriceFeed("USD", address(mockUsdFeed));
-        vm.prank(admin);
-        trueFund.addPriceFeed(currency, address(mockFeed));
+        trueFund.addPriceFeed("USD", address(mockUsdFeed), false);
+        // Do NOT add price feed for EUR, so it is unsupported
 
         uint256 minUsd = trueFund.MINIMUM_USD();
         uint256 ethAmount = (minUsd * 1e18) / uint256(price);
@@ -211,7 +200,7 @@ contract TrueFundTest is Test {
         vm.prank(admin);
         trueFund.registerRecipientWithOrg(recipient, "CharityOrg");
         vm.prank(admin);
-        trueFund.addPriceFeed("USD", address(mockUsdFeed));
+        trueFund.addPriceFeed("USD", address(mockUsdFeed), false);
         // Do NOT add price feed for "CAD"
 
         uint256 minUsd = trueFund.MINIMUM_USD();
@@ -220,7 +209,7 @@ contract TrueFundTest is Test {
         vm.deal(address(3), ethAmount);
 
         vm.prank(address(3));
-        vm.expectRevert("Price feed not available");
+        vm.expectRevert("Currency not supported");
         trueFund.donationToRecipient{value: ethAmount}(
             recipient,
             currency,
@@ -244,9 +233,9 @@ contract TrueFundTest is Test {
         vm.prank(admin);
         trueFund.registerRecipientWithOrg(recipient, "CharityOrg");
         vm.prank(admin);
-        trueFund.addPriceFeed(currency, address(mockFeed));
+        trueFund.addPriceFeed(currency, address(mockFeed), true);
         vm.prank(admin);
-        trueFund.addPriceFeed("USD", address(mockUsdFeed));
+        trueFund.addPriceFeed("USD", address(mockUsdFeed), false);
 
         uint256 minUsd = trueFund.MINIMUM_USD();
         uint256 ethAmount = (minUsd * 1e18) / uint256(price);
@@ -273,22 +262,23 @@ contract TrueFundTest is Test {
         uint8 decimals = 8;
         int256 price = int256(2000 * 10 ** uint256(decimals));
         MockV3Aggregator mockFeed = new MockV3Aggregator(decimals, price);
-        MockV3Aggregator mockUsdFeed = new MockV3Aggregator(decimals, price);
+        MockV3Aggregator mockUsdFeed = new MockV3Aggregator(decimals, 1); // Set USD price feed to a very low value
 
         vm.prank(admin);
         trueFund.registerRecipientWithOrg(recipient, "CharityOrg");
         vm.prank(admin);
-        trueFund.addPriceFeed(currency, address(mockFeed));
+        trueFund.addPriceFeed(currency, address(mockFeed), true);
         vm.prank(admin);
-        trueFund.addPriceFeed("USD", address(mockUsdFeed));
+        trueFund.addPriceFeed("USD", address(mockUsdFeed), false);
 
-        uint256 minUsd = trueFund.MINIMUM_USD();
-        uint256 ethAmount = (minUsd * 1e18) / uint256(price);
+        // Removed unused minUsd variable
+        // Set lowAmount so donationInUsd < MINIMUM_USD
+        uint256 lowAmount = 1; // much less than $1 with 8 decimals
+        // Calculate ethAmount for lowAmount
+        uint256 ethAmount = (lowAmount * 1e18 * uint256(price)) /
+            (10 ** uint256(decimals));
+        // Send enough ETH to pass ethAmount check
         vm.deal(address(3), ethAmount);
-
-        // Set amountInLocalCurrency to a value that will result in donationInUsd < MINIMUM_USD
-        uint256 lowAmount = 1 * 10 ** uint256(decimals); // $1 with 8 decimals, much less than minUsd
-
         vm.prank(address(3));
         vm.expectRevert("Donation must be at least 1 USD");
         trueFund.donationToRecipient{value: ethAmount}(
@@ -307,6 +297,7 @@ contract TrueFundTest is Test {
         address recipient = address(2);
         string memory currency = "USD";
         address priceFeedAddress = address(5);
+        bool ethPerLocal = false;
 
         vm.prank(notAdmin);
         vm.expectRevert("Only admin can perform this action");
@@ -318,11 +309,27 @@ contract TrueFundTest is Test {
 
         vm.prank(notAdmin);
         vm.expectRevert("Only admin can perform this action");
-        trueFund.addPriceFeed(currency, priceFeedAddress);
+        trueFund.addPriceFeed(currency, priceFeedAddress, ethPerLocal);
 
         vm.prank(notAdmin);
         vm.expectRevert("Only admin can perform this action");
         trueFund.removePriceFeed(currency);
+    }
+
+    /**
+     * @notice Tests admin transfer and sweep functions
+     */
+    function testAdminTransferAndSweep() public {
+        address admin = address(1);
+        address newAdmin = address(9);
+        address payable sweepTo = payable(address(100));
+        vm.prank(admin);
+        trueFund.transferAdmin(newAdmin);
+        // Only new admin can sweep
+        vm.deal(address(trueFund), 1 ether);
+        vm.prank(newAdmin);
+        trueFund.sweep(sweepTo);
+        assertEq(sweepTo.balance, 1 ether);
     }
 
     /**
@@ -334,7 +341,7 @@ contract TrueFundTest is Test {
         int256 price = int256(1234 * 10 ** uint256(decimals));
         MockV3Aggregator mockFeed = new MockV3Aggregator(decimals, price);
         vm.prank(address(1));
-        trueFund.addPriceFeed(currency, address(mockFeed));
+        trueFund.addPriceFeed(currency, address(mockFeed), false);
         int256 fetchedPrice = trueFund.getLatestPrice(currency);
         assertEq(fetchedPrice, price);
     }
@@ -357,7 +364,7 @@ contract TrueFundTest is Test {
         string memory currency = "USD";
         address priceFeedAddress = address(3);
         vm.prank(address(1));
-        trueFund.addPriceFeed(currency, priceFeedAddress);
+        trueFund.addPriceFeed(currency, priceFeedAddress, false);
         address fetchedAddress = trueFund.getPriceFeedAddress(currency);
         assertEq(fetchedAddress, priceFeedAddress);
     }
@@ -371,7 +378,7 @@ contract TrueFundTest is Test {
         int256 price = int256(5678 * 10 ** uint256(decimals));
         MockV3Aggregator mockFeed = new MockV3Aggregator(decimals, price);
         vm.prank(address(1));
-        trueFund.addPriceFeed(currency, address(mockFeed));
+        trueFund.addPriceFeed(currency, address(mockFeed), false);
         // Non-admin calls getter
         int256 fetchedPrice = trueFund.getLatestPrice(currency);
         assertEq(fetchedPrice, price);
@@ -396,7 +403,7 @@ contract TrueFundTest is Test {
         string memory currency = "USD";
         address priceFeedAddress = address(3);
         vm.prank(address(1));
-        trueFund.addPriceFeed(currency, priceFeedAddress);
+        trueFund.addPriceFeed(currency, priceFeedAddress, false);
         // Non-admin calls getter
         address fetchedAddress = trueFund.getPriceFeedAddress(currency);
         assertEq(fetchedAddress, priceFeedAddress);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.18;
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {PriceUtils} from "./PriceUtils.sol";
 
 /**
  * @title TrueFund
@@ -11,43 +11,39 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interf
  */
 
 contract TrueFund {
+    // Price helper functions moved to PriceUtils library
+
     // --- Events ---
-    // Emitted when a recipient is removed from the registry for transparency
     event RecipientRemoved(address indexed recipientAddress);
-    // Emitted when a new price feed is added for a currency
-    event PriceFeedAdded(string currency, address priceFeedAddress);
-    // Emitted when a price feed is removed for a currency
+    event PriceFeedAdded(
+        string currency,
+        address priceFeedAddress,
+        bool isEthPerLocal
+    );
     event PriceFeedRemoved(string currency);
-    // Emitted when a donation is made to a recipient
     event DonationMade(
         address indexed donor,
         address indexed recipient,
         string currency,
-        uint256 amount
+        uint256 localAmount,
+        uint256 ethAmount,
+        uint256 usdAmount
     );
 
     // --- Constants ---
     // Minimum donation amount in USD (scaled to 18 decimals)
     uint256 public constant MINIMUM_USD = 1 * 10 ** 18;
 
-    // The admin address that controls recipient and price feed management
-    // Only this address can call admin-only functions
     // --- State Variables ---
-    // The admin address that controls recipient and price feed management
-    // Only this address can call admin-only functions
     address private i_admin;
-
-    // Mapping from recipient address to organization name
-    // Used to verify and lookup registered recipients
-    // Mapping from recipient address to organization name
-    // Used to verify and lookup registered recipients
     mapping(address => string) public recipientsAddressToOrgName;
 
+    // Mapping to track refunds for donors
+    mapping(address => uint256) public refund;
     // Mapping from currency code (e.g., "USD", "CAD") to price feed contract address
-    // Used to support multi-currency donations and conversions
-    // Mapping from currency code (e.g., "USD", "CAD") to price feed contract address
-    // Used to support multi-currency donations and conversions
     mapping(string => address) public priceFeeds;
+    // Mapping from currency code to feed orientation (true = ETH per LOCAL, false = LOCAL per ETH)
+    mapping(string => bool) public isEthPerLocal;
 
     // --- Modifiers ---
     // Restrict function access to the admin only
@@ -96,10 +92,12 @@ contract TrueFund {
      */
     function addPriceFeed(
         string memory currency,
-        address priceFeedAddress
+        address priceFeedAddress,
+        bool ethPerLocal
     ) external onlyAdmin {
         priceFeeds[currency] = priceFeedAddress;
-        emit PriceFeedAdded(currency, priceFeedAddress);
+        isEthPerLocal[currency] = ethPerLocal;
+        emit PriceFeedAdded(currency, priceFeedAddress, ethPerLocal);
     }
 
     /**
@@ -109,6 +107,7 @@ contract TrueFund {
      */
     function removePriceFeed(string memory currency) external onlyAdmin {
         delete priceFeeds[currency];
+        delete isEthPerLocal[currency];
         emit PriceFeedRemoved(currency);
     }
 
@@ -124,68 +123,76 @@ contract TrueFund {
         string memory currencyCode,
         uint256 amountInLocalCurrency
     ) external payable {
-        // Ensure the recipient is registered
+        require(recipientAddress != address(0), "Zero recipient");
+        require(amountInLocalCurrency > 0, "Zero amount");
         require(
             bytes(recipientsAddressToOrgName[recipientAddress]).length != 0,
             "Recipient not registered"
         );
-
-        // Supported currencies (hardcoded for now)
         require(
-            keccak256(bytes(currencyCode)) == keccak256(bytes("USD")) ||
-                keccak256(bytes(currencyCode)) == keccak256(bytes("CAD")) ||
-                keccak256(bytes(currencyCode)) == keccak256(bytes("GBP")) ||
-                keccak256(bytes(currencyCode)) == keccak256(bytes("HKD")) ||
-                keccak256(bytes(currencyCode)) == keccak256(bytes("PKR")),
+            priceFeeds[currencyCode] != address(0),
             "Currency not supported"
         );
 
-        // Get the price feed address for the currency
         address priceFeedAddress = priceFeeds[currencyCode];
-        require(priceFeedAddress != address(0), "Price feed not available");
-
-        // Get the latest price from Chainlink
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(
+        bool ethPerLocal = isEthPerLocal[currencyCode];
+        (int256 price, uint8 priceDecimals) = PriceUtils.getPriceData(
             priceFeedAddress
         );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
-        require(price > 0, "Invalid price feed data");
-
-        // Convert local currency amount to ETH
-        uint256 ethAmount = (uint256(amountInLocalCurrency) * 1e18) /
-            uint256(price);
-
-        // Get ETH/USD price feed for minimum USD check
-        address usdPriceFeedAddress = priceFeeds["USD"];
-        require(
-            usdPriceFeedAddress != address(0),
-            "USD price feed not available"
+        uint256 ethAmount = PriceUtils.convertToEth(
+            amountInLocalCurrency,
+            price,
+            priceDecimals,
+            ethPerLocal
         );
-        AggregatorV3Interface usdPriceFeed = AggregatorV3Interface(
+
+        address usdPriceFeedAddress = priceFeeds["USD"];
+        require(isEthPerLocal["USD"] == false, "USD feed must be USD/ETH");
+        (int256 ethUsdPrice, uint8 usdDecimals) = PriceUtils.getPriceData(
             usdPriceFeedAddress
         );
-        (, int256 ethUsdPrice, , , ) = usdPriceFeed.latestRoundData();
-        require(ethUsdPrice > 0, "Invalid USD price feed data");
-        uint256 donationInUsd = (ethAmount * uint256(ethUsdPrice)) / 1e18;
+        uint256 donationInUsd = PriceUtils.convertToUsd(
+            ethAmount,
+            ethUsdPrice,
+            usdDecimals
+        );
+
         require(
             donationInUsd >= MINIMUM_USD,
             "Donation must be at least 1 USD"
         );
-
-        // Require enough ETH sent
         require(msg.value >= ethAmount, "Insufficient ETH sent");
-
-        // Transfer ETH to recipient
         (bool sent, ) = recipientAddress.call{value: ethAmount}("");
         require(sent, "ETH transfer failed");
 
-        // Emit donation event
+        uint256 refundAmount = msg.value - ethAmount;
+        if (refundAmount > 0) {
+            (bool ok, ) = msg.sender.call{value: refundAmount}("");
+            if (!ok) {
+                refund[msg.sender] += refundAmount;
+            }
+        }
+
         emit DonationMade(
             msg.sender,
             recipientAddress,
             currencyCode,
-            amountInLocalCurrency
+            amountInLocalCurrency,
+            ethAmount,
+            donationInUsd
         );
+    }
+
+    // --- Admin Lifecycle Functions ---
+    function transferAdmin(address newAdmin) external onlyAdmin {
+        require(newAdmin != address(0), "Zero admin");
+        i_admin = newAdmin;
+    }
+
+    function sweep(address to) external onlyAdmin {
+        require(to != address(0), "Zero addr");
+        (bool ok, ) = to.call{value: address(this).balance}("");
+        require(ok, "Sweep failed");
     }
 
     // --- View/Helper Functions ---
@@ -199,10 +206,7 @@ contract TrueFund {
     ) public view returns (int256) {
         address priceFeedAddress = priceFeeds[currencyCode];
         require(priceFeedAddress != address(0), "Price feed not available");
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(
-            priceFeedAddress
-        );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+        (int256 price, ) = PriceUtils.getPriceData(priceFeedAddress);
         return price;
     }
 
