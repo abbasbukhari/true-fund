@@ -6,15 +6,27 @@ import {Test, console} from "forge-std/Test.sol";
 import {TrueFund} from "../src/TrueFund.sol";
 import {MockV3Aggregator} from "./mock/MockV3Aggregator.sol";
 
+/**
+ * @title TrueFundTest
+ * @notice Comprehensive unit tests for the TrueFund contract
+ * @dev Covers admin functions, donation logic, error paths, and view/getter functions
+ */
 contract TrueFundTest is Test {
+    // Instance of the TrueFund contract
     TrueFund private trueFund;
 
+    /**
+     * @notice Deploys TrueFund contract as admin before each test
+     */
     function setUp() public {
         vm.prank(address(1)); // Deploy contract as admin
         trueFund = new TrueFund();
     }
 
-    // Add your test functions here
+    /**
+     * @notice Tests admin registering a recipient
+     * @dev Verifies recipient is registered with correct org name
+     */
     function testRegisterRecipient() public {
         address recipient = address(2);
         vm.prank(address(1)); // simulate admin call
@@ -23,6 +35,10 @@ contract TrueFundTest is Test {
         assertEq(orgName, "CharityOrg");
     }
 
+    /**
+     * @notice Tests admin removing a recipient
+     * @dev Verifies recipient is removed and org name is empty
+     */
     function testRemoveRecipient() public {
         address recipient = address(2);
         vm.prank(address(1));
@@ -33,6 +49,10 @@ contract TrueFundTest is Test {
         assertEq(orgName, "");
     }
 
+    /**
+     * @notice Tests admin adding a price feed
+     * @dev Verifies price feed address is stored correctly
+     */
     function testAddPriceFeed() public {
         string memory currency = "USD";
         address priceFeedAddress = address(3);
@@ -42,6 +62,10 @@ contract TrueFundTest is Test {
         assertEq(storedFeed, priceFeedAddress);
     }
 
+    /**
+     * @notice Tests admin removing a price feed
+     * @dev Verifies price feed address is deleted
+     */
     function testRemovePriceFeed() public {
         string memory currency = "USD";
         address priceFeedAddress = address(3);
@@ -53,6 +77,10 @@ contract TrueFundTest is Test {
         assertEq(storedFeed, address(0));
     }
 
+    /**
+     * @notice Tests successful donation to a registered recipient
+     * @dev Verifies ETH transfer and event emission
+     */
     function testDonationToRecipient() public {
         address admin = address(1);
         address recipient = address(2);
@@ -103,6 +131,10 @@ contract TrueFundTest is Test {
         assertEq(recipient.balance, ethAmount);
     }
 
+    /**
+     * @notice Tests donation fails for unregistered recipient
+     * @dev Expects revert with "Recipient not registered"
+     */
     function testDonationFailsForUnregisteredRecipient() public {
         address recipient = address(2);
         string memory currency = "USD";
@@ -130,6 +162,10 @@ contract TrueFundTest is Test {
         );
     }
 
+    /**
+     * @notice Tests donation fails for unsupported currency
+     * @dev Expects revert with "Currency not supported"
+     */
     function testDonationFailsForUnsupportedCurrency() public {
         address admin = address(1);
         address recipient = address(2);
@@ -160,6 +196,10 @@ contract TrueFundTest is Test {
         );
     }
 
+    /**
+     * @notice Tests donation fails when price feed is missing for currency
+     * @dev Expects revert with "Price feed not available"
+     */
     function testDonationFailsForMissingPriceFeed() public {
         address admin = address(1);
         address recipient = address(2);
@@ -188,6 +228,10 @@ contract TrueFundTest is Test {
         );
     }
 
+    /**
+     * @notice Tests donation fails when insufficient ETH is sent
+     * @dev Expects revert with "Insufficient ETH sent"
+     */
     function testDonationFailsForInsufficientETH() public {
         address admin = address(1);
         address recipient = address(2);
@@ -218,6 +262,10 @@ contract TrueFundTest is Test {
         );
     }
 
+    /**
+     * @notice Tests donation fails when below minimum USD value
+     * @dev Expects revert with "Donation must be at least 1 USD"
+     */
     function testDonationFailsForBelowMinimumUSD() public {
         address admin = address(1);
         address recipient = address(2);
@@ -250,6 +298,10 @@ contract TrueFundTest is Test {
         );
     }
 
+    /**
+     * @notice Tests admin-only functions fail for non-admin callers
+     * @dev Expects revert with "Only admin can perform this action"
+     */
     function testAdminFunctionsFailForNonAdmin() public {
         address notAdmin = address(4);
         address recipient = address(2);
@@ -273,6 +325,9 @@ contract TrueFundTest is Test {
         trueFund.removePriceFeed(currency);
     }
 
+    /**
+     * @notice Tests getLatestPrice returns correct price for currency
+     */
     function testGetLatestPrice() public {
         string memory currency = "USD";
         uint8 decimals = 8;
@@ -284,6 +339,9 @@ contract TrueFundTest is Test {
         assertEq(fetchedPrice, price);
     }
 
+    /**
+     * @notice Tests getRecipientOrgName returns correct org name
+     */
     function testGetRecipientOrgName() public {
         address recipient = address(2);
         vm.prank(address(1));
@@ -292,6 +350,9 @@ contract TrueFundTest is Test {
         assertEq(orgName, "CharityOrg");
     }
 
+    /**
+     * @notice Tests getPriceFeedAddress returns correct address
+     */
     function testGetPriceFeedAddress() public {
         string memory currency = "USD";
         address priceFeedAddress = address(3);
@@ -301,6 +362,9 @@ contract TrueFundTest is Test {
         assertEq(fetchedAddress, priceFeedAddress);
     }
 
+    /**
+     * @notice Tests getLatestPrice can be called by non-admin
+     */
     function testGetLatestPriceNonAdmin() public {
         string memory currency = "USD";
         uint8 decimals = 8;
@@ -313,6 +377,9 @@ contract TrueFundTest is Test {
         assertEq(fetchedPrice, price);
     }
 
+    /**
+     * @notice Tests getRecipientOrgName can be called by non-admin
+     */
     function testGetRecipientOrgNameNonAdmin() public {
         address recipient = address(2);
         vm.prank(address(1));
@@ -322,6 +389,9 @@ contract TrueFundTest is Test {
         assertEq(orgName, "CharityOrg");
     }
 
+    /**
+     * @notice Tests getPriceFeedAddress can be called by non-admin
+     */
     function testGetPriceFeedAddressNonAdmin() public {
         string memory currency = "USD";
         address priceFeedAddress = address(3);
