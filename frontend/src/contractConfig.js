@@ -1,5 +1,5 @@
 // This file will hold the contract ABI and address for frontend integration
-export const CONTRACT_ADDRESS = ""; // TODO: Replace with your deployed contract address
+export const CONTRACT_ADDRESS = "0x622ee63cf2c053948793438ca2217fb8401b933d"; // Latest deployed contract address (Ganache)
 export const CONTRACT_ABI = [
   { type: "constructor", inputs: [], stateMutability: "nonpayable" },
   {
